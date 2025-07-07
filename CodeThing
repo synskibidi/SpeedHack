@@ -1,0 +1,99 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+
+local BOOST_SPEED = 45 -- adjusted speed boost
+local boosted = false
+
+-- GUI Setup
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SpeedBoostGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = CoreGui
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 140, 0, 40)
+button.Position = UDim2.new(0.5, -70, 1, -100)
+button.AnchorPoint = Vector2.new(0.5, 1)
+button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Text = "Speed Boost"
+button.Font = Enum.Font.GothamBold
+button.TextSize = 18
+button.Active = true
+button.Draggable = true
+button.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = button
+
+-- Holds the BodyVelocity object
+local bodyVelocity = nil
+local heartbeatConnection
+
+local function getRootPart()
+    local char = LocalPlayer.Character
+    if char then
+        return char:FindFirstChild("HumanoidRootPart")
+    end
+    return nil
+end
+
+local function enableSpeedBoost()
+    local root = getRootPart()
+    if not root then return end
+
+    if not bodyVelocity then
+        bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(1e5, 0, 1e5) -- horizontal force only
+        bodyVelocity.P = 1e4
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.Parent = root
+    end
+
+    heartbeatConnection = RunService.Heartbeat:Connect(function()
+        if boosted and bodyVelocity and root then
+            local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            local moveDirection = humanoid and humanoid.MoveDirection or Vector3.new()
+            if moveDirection.Magnitude > 0 then
+                bodyVelocity.Velocity = moveDirection.Unit * BOOST_SPEED
+            else
+                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+            end
+        end
+    end)
+end
+
+local function disableSpeedBoost()
+    if heartbeatConnection then
+        heartbeatConnection:Disconnect()
+        heartbeatConnection = nil
+    end
+
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+        bodyVelocity = nil
+    end
+end
+
+-- Respawn handler
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    if boosted then
+        enableSpeedBoost()
+    end
+end)
+
+button.MouseButton1Click:Connect(function()
+    boosted = not boosted
+    if boosted then
+        button.Text = "Boost ON ✔"
+        enableSpeedBoost()
+    else
+        button.Text = "Speed Boost"
+        disableSpeedBoost()
+    end
+end)
